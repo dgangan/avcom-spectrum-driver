@@ -1,12 +1,12 @@
-import com.dgangan.avcom.AvcomSpectrum;
-import com.dgangan.avcom.AvcomWaveform;
+import com.dgangan.avcom.AvSpectrum;
+import com.dgangan.avcom.AvWaveform;
 import com.dgangan.avcom.exeptions.AvcomMessageFormatException;
 
 import java.io.IOException;
 
 public class Test {
     public static void main(String[] args) throws IOException, InterruptedException {
-        AvcomSpectrum avcom = new AvcomSpectrum("192.168.1.1",26482);
+        AvSpectrum avcom = new AvSpectrum(9999, "1.1.1.1",26482);
         try{
             avcom.connect();
 //            for(int i = 0; i<100; i++) {
@@ -22,7 +22,7 @@ public class Test {
 //                System.out.println(avcom.getAvcomSettings());
 //            }
             avcom.changeSettings(1, 1000000, 70000, -30, 300);
-            AvcomWaveform wf = avcom.fetchWaveform();
+            AvWaveform wf = avcom.getWaveform();
             System.out.println(wf);
             avcom.disconnect();
         } catch(AvcomMessageFormatException e){
