@@ -1,3 +1,5 @@
 # java-avcom-spectrum
-Basic library to connect to Avcom Spectrum Analysers
-Very minimal functionality
+> Under early stage of development  
+
+Basic library to connect to Avcom RF Spectrum analysers (https://avcomofva.com/) and store received data in DB  
+Very minimal functionality oging to be supported  
