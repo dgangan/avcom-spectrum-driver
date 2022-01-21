@@ -1,68 +1,32 @@
 package com.dgangan.avcom;
 
+import lombok.Data;
+
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
+@Data
 public class AvWaveform {
 
     private int spectrumId;
     private Instant time;
     private AvSettings waveformSettings;
     private List<List<Double>> waveformData;
-    private String tag = "";
+    private String presetName = "";
+    private UUID presetUUID;
 
     public AvWaveform(AvSpectrum avSpectrum, AvSettings avSettings,List<List<Double>> waveformData){
-        this.spectrumId = avSpectrum.getSpectrumId();
+        this.spectrumId = avSpectrum.getId();
         this.waveformSettings = avSettings;
         this.waveformData = waveformData;
         this.time = Instant.now();
     }
 
-    public int getSpectrumId() {
-        return spectrumId;
-    }
-
-    public void setSpectrumId(int spectrumId) {
-        this.spectrumId = spectrumId;
-    }
-
-    public Instant getTime() {
-        return time;
-    }
-
-    public void setTime(Instant time) {
-        this.time = time;
-    }
-
-    public AvSettings getWaveformSettings() {
-        return waveformSettings;
-    }
-
-    public void setWaveformSettings(AvSettings waveformSettings) {
-        this.waveformSettings = waveformSettings;
-    }
-
-    public List<List<Double>> getWaveformData() {
-        return waveformData;
-    }
-
-    public void setWaveformData(List<List<Double>> waveformData) {
+    public AvWaveform(AvSpectrum avSpectrum, AvPreset avPreset,List<List<Double>> waveformData){
+        this.spectrumId = avSpectrum.getId();
+        this.time = Instant.now();
+        this.waveformSettings = avPreset.getSettings();
         this.waveformData = waveformData;
-    }
-
-    public String getTag() {
-        return tag;
-    }
-
-    public void setTag(String tag) {
-        this.tag = tag;
-    }
-    @Override
-    public String toString() {
-        return "AvcomWaveform{" +
-                "time=" + time +
-                ", waveformSettings=" + waveformSettings +
-                ", waveform=" + waveformData +
-                '}';
     }
 }

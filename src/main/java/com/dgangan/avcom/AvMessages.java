@@ -24,7 +24,7 @@ public class AvMessages {
 
     public static HashMap<Integer, Byte> rbwToByte = new HashMap<Integer, Byte>(){{
        put(3000, (byte) 0x80);
-       put(1000, (byte) 0x41);
+       put(1000, (byte) 0x40);
        put( 300, (byte) 0x20);
        put( 200, (byte) 0x2);
        put( 100, (byte) 0x10);
@@ -34,7 +34,7 @@ public class AvMessages {
 
     public static HashMap<Byte, Integer> byteToRbw = new HashMap<Byte, Integer>(){{
         put((byte) 0x80, 3000);
-        put((byte) 0x41, 1000);
+        put((byte) 0x40, 1000);
         put((byte) 0x20, 300);
         put((byte) 0x2,  200);
         put((byte) 0x10, 100);
@@ -54,7 +54,7 @@ public class AvMessages {
         System.arraycopy(cfBytes,0,changeSettingsMessage,4,4);
         System.arraycopy(spanBytes,0,changeSettingsMessage,8,4);
         changeSettingsMessage[12] = avSettings.getRefLevel();
-        changeSettingsMessage[13] = avSettings.getRbw();
+        changeSettingsMessage[13] = rbwToByte.get(avSettings.getRbw());
         changeSettingsMessage[14] = (byte) (avSettings.getPort() + 9);
         System.arraycopy(trailerBytes,0,changeSettingsMessage,15,4);
 
