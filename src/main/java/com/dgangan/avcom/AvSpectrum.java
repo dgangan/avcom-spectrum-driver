@@ -1,129 +1,76 @@
 package com.dgangan.avcom;
 
 import com.dgangan.avcom.exeptions.AvcomMessageFormatException;
+import lombok.Data;
+import lombok.Synchronized;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.Range;
-
 import java.net.*;
 import java.io.*;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
+@Data
 public class AvSpectrum {
 
-    private int spectrumId;
+    private int id;
+    private String name = "";
+    private String ip;
+    private int port;
     private Socket socket;
-    private String avcomIp;
-    private int avcomPort;
-    private AvSettings avSettings = null;
-    //Hardware Information
-    private byte prodId;
-    private String version;
-    private byte availRF;  //Number of ports
-    private String SN;
-    private HashMap<Integer, Range<Integer>> portRefCapability;  //Reference level capabilities of ports
+    private AvSettings settings;
+    private AvHwInfo hwInfo;
+    private List<AvPreset> presets = new ArrayList<>();
 
-    public AvSpectrum(int spectrumId, String avcomIp, int avcomPort) {
-        this.avcomIp = avcomIp;
-        this.avcomPort = avcomPort;
-        this.spectrumId = spectrumId;
+    public AvSpectrum(int id, String ip, int port) {
+        this.ip = ip;
+        this.port = port;
+        this.id = id;
     }
 
-    public int getSpectrumId() {
-        return spectrumId;
-    }
-
-    public void setSpectrumId(int spectrumId) {
-        this.spectrumId = spectrumId;
-    }
-
-    public byte getProdId() {
-        return prodId;
-    }
-
-    public void setProdId(byte prodId) {
-        this.prodId = prodId;
-    }
-
-    public String getVersion() {
-        return version;
-    }
-
-    public void setVersion(String version) {
-        this.version = version;
-    }
-
-    public byte getAvailRF() {
-        return availRF;
-    }
-
-    public void setAvailRF(byte availRF) {
-        this.availRF = availRF;
-    }
-
-    public String getSN() {
-        return SN;
-    }
-
-    public void setSN(String SN) {
-        this.SN = SN;
-    }
-
-    public HashMap<Integer, Range<Integer>> getPortRefCapability() {
-        return portRefCapability;
-    }
-
-    public void setPortRefCapability(HashMap<Integer, Range<Integer>> portRefCap) {
-        this.portRefCapability = portRefCap;
-    }
-
-    public String getAvcomIp() {
-        return avcomIp;
-    }
-
-    public int getAvcomPort() {
-        return avcomPort;
-    }
-
-    public void setAvcomIp(String avcomIp) {
-        this.avcomIp = avcomIp;
-    }
-
-    public void setAvcomPort(int avcomPort) {
-        this.avcomPort = avcomPort;
-    }
-
-    public AvSettings getAvcomSettings() {
-        return avSettings;
-    }
-
-    public void setAvcomSettings(AvSettings avSettings) {
-        this.avSettings = avSettings;
-    }
-
-    public void setAvcomHwInfo(byte prodId, byte majorVer, byte minorVer, byte availRF, String SN, HashMap<Integer, Range<Integer>> portRefCapability ){
-            this.prodId = prodId;
-            this.version = majorVer +"." + minorVer;
-            this.availRF = availRF;
-            this.SN = SN;
-            this.portRefCapability = portRefCapability;
+    public void addPreset(AvPreset preset){
+        if(this.presets.stream().noneMatch(a -> a.getName().equals(preset.getName()))){
+            presets.add(preset);
+        } else {
+            throw new IllegalArgumentException(
+                    String.format("Preset with name: %s for SA: %s, already exist",preset.getName(), this.getName()));
         }
+    }
+
+    public void removePreset(AvPreset preset){
+        this.presets.remove(preset);
+    }
+
+    public AvPreset getPresetByName(String name){
+       return this.presets.stream()
+               .filter(a -> a.getName().equals(name))
+               .findAny()
+               .orElseThrow(() -> new IllegalArgumentException("Preset with name: " + name + " not found"));
+    }
+    public void removePresetByName(String name){
+        this.presets.stream().filter(a -> a.getName().equals(name)).forEach(this::removePreset);
+    }
+
+    public void removePresetByUUID(UUID uuid){
+        this.presets.stream().filter(a -> a.getUuid().equals(uuid)).forEach(this::removePreset);
+    }
+
+    public void initialize() throws AvcomMessageFormatException, IOException {
+        connect();
+        fetchHwInfo();
+        fetchSettings();
+    }
 
     public void fetchHwInfo() throws IOException, AvcomMessageFormatException {
-
         send(AvMessages.GET_HW_DESCRIPTION);
         byte[] avcomHwDescription = read();
         send(AvMessages.GET_LNB_AND_FIX_LO);
         byte[] avcomLnbAndFixLO = read();
-
+        //Validation of response
         AvUtil.verifyMessageType(avcomHwDescription, AvMessages.msgType.HW_DESCRIPTION);
         AvUtil.verifyMessageType(avcomLnbAndFixLO, AvMessages.msgType.LNB_AND_FIX_LO);
         List<Byte> hwDescriptionBytesList = Arrays.asList(ArrayUtils.toObject(avcomHwDescription));
         List<Byte> lnbPowerDescriptionByteList = Arrays.asList(ArrayUtils.toObject(avcomLnbAndFixLO));
-
         //Collecting HW information
         byte prodId = hwDescriptionBytesList.get(4);
         byte majorVer = hwDescriptionBytesList.get(5);
@@ -131,7 +78,6 @@ public class AvSpectrum {
         byte availRf = (byte) (hwDescriptionBytesList.get(20) -10);
         String SN = new String(ArrayUtils.toPrimitive(hwDescriptionBytesList.subList(29,45).toArray(new Byte[0])));
         byte[] portsFixedGain = ArrayUtils.toPrimitive(lnbPowerDescriptionByteList.subList(37, 43).toArray(new Byte[0]));
-
         //Filling Avcom port reference level capability
         HashMap<Integer,Range<Integer>> portRefCapMap = new HashMap<>();
         byte ports70dbCapability = hwDescriptionBytesList.get(59);
@@ -142,22 +88,37 @@ public class AvSpectrum {
                 maxVal-=20;
             portRefCapMap.put(i+1, Range.between(minVal,maxVal));
         }
-        this.setAvcomHwInfo(prodId, majorVer, minorVer, availRf, SN, portRefCapMap);
+        this.hwInfo = new AvHwInfo(prodId, majorVer, minorVer, availRf, SN);
+        this.hwInfo.setPortRefCap(portRefCapMap);
     }
 
-    public AvSettings fetchAvcomSettings() throws IOException, AvcomMessageFormatException {
+    public void fetchSettings() throws IOException, AvcomMessageFormatException {
         send(AvMessages.GET_HW_DESCRIPTION);
         byte[] avcomHwDescription = read();
-        this.avSettings = AvSettings.getAvcomSettingsFromHwDescription(avcomHwDescription);
-        return this.avSettings;
+        AvUtil.verifyMessageType(avcomHwDescription, AvMessages.msgType.HW_DESCRIPTION);
+        List<Byte> hwDescriptionBytesList = Arrays.asList(ArrayUtils.toObject(avcomHwDescription));
+        //Collecting settings information
+        byte curRL = hwDescriptionBytesList.get(16);
+        byte curRBW = hwDescriptionBytesList.get(17);
+        byte curRF = (byte) (hwDescriptionBytesList.get(19) - 9);
+        int curCF = ByteBuffer.wrap(ArrayUtils.toPrimitive(hwDescriptionBytesList.subList(8, 12).toArray(new Byte[0]))).getInt() / 10;
+        int curSP = ByteBuffer.wrap(ArrayUtils.toPrimitive(hwDescriptionBytesList.subList(12, 16).toArray(new Byte[0]))).getInt() / 10;
+        this.settings = new AvSettings(curRF, curCF, curSP, curRL, AvMessages.byteToRbw.get(curRBW));
     }
 
-    public AvWaveform getWaveform() throws IOException, AvcomMessageFormatException {
+    public AvWaveform getWaveform(AvPreset preset) throws AvcomMessageFormatException, IOException, InterruptedException {
+        this.changeSettings(preset.getSettings());
+        AvWaveform waveform = this.getWaveform();
+        waveform.setPresetName(preset.getName());
+        waveform.setPresetUUID(preset.getUuid());
+        return waveform;
+    }
+
+    private AvWaveform getWaveform() throws IOException, AvcomMessageFormatException {
         send(AvMessages.GET_WAVEFORM);
         byte[] avcomWaveformBytes = read();
         AvUtil.verifyMessageType(avcomWaveformBytes, AvMessages.msgType.WAVEFORM);
         List<Byte> waveformResponseByteList = Arrays.asList(ArrayUtils.toObject(avcomWaveformBytes));
-
         //Collecting AvcomSetting information
         List<Byte> waveformDataBytes = waveformResponseByteList.subList(4,324);;
         byte curRL = waveformResponseByteList.get(333);
@@ -168,7 +129,6 @@ public class AvSpectrum {
         int curIEF = (short) ((curIEFbytes[0] << 8) | curIEFbytes[1]);
         int curSP = ByteBuffer.wrap(ArrayUtils.toPrimitive(waveformResponseByteList.subList(329, 333).toArray(new Byte[0]))).getInt() / 10;
         AvSettings avSettings = new AvSettings(curRF, curCF, curSP, curRL, curRBW, curIEF);
-
         //Collecting waveform data
         List<List<Double>> waveformData = new ArrayList<>();
         double wfStartFreq = (curCF - curIEF) - 0.5*curSP;
@@ -185,10 +145,21 @@ public class AvSpectrum {
         return new AvWaveform(this, avSettings, waveformData);
     }
 
-    public void changeSettings(int port, int centralFreq, int span, int refLevel, int rbw) throws IOException, InterruptedException, AvcomMessageFormatException {
-        this.send(AvMessages.getChangeSettingsMessage(new AvSettings(port, centralFreq, span, refLevel, rbw)));
+    public void changeSettings(AvSettings avSettings) throws IOException, InterruptedException, AvcomMessageFormatException {
+        this.send(AvMessages.getChangeSettingsMessage(avSettings));
         Thread.sleep(400);
-        this.fetchAvcomSettings();
+        this.fetchSettings();
+    }
+
+    public AvSettings getAvcomSettingsFromHwDescription(byte[] HwDescriptionResponse) {
+        AvUtil.verifyMessageType(HwDescriptionResponse, AvMessages.msgType.HW_DESCRIPTION);
+        List<Byte> hwDescriptionBytesList = Arrays.asList(ArrayUtils.toObject(HwDescriptionResponse));
+        byte curRL = hwDescriptionBytesList.get(16);
+        byte curRBW = hwDescriptionBytesList.get(17);
+        byte curRF = (byte) (hwDescriptionBytesList.get(19) - 9);
+        int curCF = ByteBuffer.wrap(ArrayUtils.toPrimitive(hwDescriptionBytesList.subList(8, 12).toArray(new Byte[0]))).getInt() / 10;
+        int curSP = ByteBuffer.wrap(ArrayUtils.toPrimitive(hwDescriptionBytesList.subList(12, 16).toArray(new Byte[0]))).getInt() / 10;
+        return new AvSettings(curRF, curCF, curSP, curRL, AvMessages.byteToRbw.get(curRBW));
     }
 
     public void send(byte[] msg) throws IOException {
@@ -200,10 +171,13 @@ public class AvSpectrum {
     }
 
     public void connect() throws IOException {
-        this.socket = new Socket(avcomIp, avcomPort);
+        this.socket = new Socket(ip, port);
     }
 
     public void disconnect() throws IOException {
         this.socket.close();
+    }
+    public boolean isConnected(){
+        return this.socket.isConnected();
     }
 }

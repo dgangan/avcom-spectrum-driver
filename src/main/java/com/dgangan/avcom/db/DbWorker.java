@@ -41,7 +41,7 @@ public class DbWorker {
             ps.setTimestamp(1, ts, tzUTC);
             ps.setInt(2, avcom.getSpectrumId());
             ps.setObject(3, jsonObject);
-            ps.setString(4, avcom.getTag());
+            ps.setString(4, avcom.getPresetName());
             ps.addBatch();
             System.out.println(wfJsonString);
         }
