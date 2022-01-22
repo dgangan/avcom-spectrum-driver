@@ -128,7 +128,7 @@ public class AvSpectrum {
         byte [] curIEFbytes = {waveformResponseByteList.get(338), waveformResponseByteList.get(339)};
         int curIEF = (short) ((curIEFbytes[0] << 8) | curIEFbytes[1]);
         int curSP = ByteBuffer.wrap(ArrayUtils.toPrimitive(waveformResponseByteList.subList(329, 333).toArray(new Byte[0]))).getInt() / 10;
-        AvSettings avSettings = new AvSettings(curRF, curCF, curSP, curRL, curRBW, curIEF);
+        AvSettings avSettings = new AvSettings(curRF, curCF, curSP, curRL, AvMessages.byteToRbw.get(curRBW), curIEF);
         //Collecting waveform data
         List<List<Double>> waveformData = new ArrayList<>();
         double wfStartFreq = (curCF - curIEF) - 0.5*curSP;
@@ -147,8 +147,9 @@ public class AvSpectrum {
 
     public void changeSettings(AvSettings avSettings) throws IOException, InterruptedException, AvcomMessageFormatException {
         this.send(AvMessages.getChangeSettingsMessage(avSettings));
-        Thread.sleep(400);
-        this.fetchSettings();
+        while(!this.getSettings().equals(avSettings)){
+            this.fetchSettings();
+        }
     }
 
     public AvSettings getAvcomSettingsFromHwDescription(byte[] HwDescriptionResponse) {
