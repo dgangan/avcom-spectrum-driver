@@ -1,10 +1,5 @@
 package com.dgangan.avcom;
 
-import org.apache.commons.lang3.ArrayUtils;
-
-import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.List;
 import lombok.Data;
 
 //(byte) 1, 1500000, 5000, (byte) -30, Rbw.RBW_100KHZ

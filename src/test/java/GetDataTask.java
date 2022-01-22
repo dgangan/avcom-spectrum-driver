@@ -1,6 +1,9 @@
 import com.dgangan.avcom.AvPreset;
 import com.dgangan.avcom.AvSpectrum;
 import com.dgangan.avcom.AvWaveform;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -8,6 +11,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class GetDataTask implements Runnable{
 
@@ -23,6 +27,7 @@ public class GetDataTask implements Runnable{
     public void run(){
         CountDownLatch latch = new CountDownLatch(avList.size());
         for(AvSpectrum spectrum : avList){
+            //Create runnable object for each spectrum
             Runnable checkSpectrumTask = () -> {
                 for(AvPreset preset : spectrum.getPresets()){
                     try {
@@ -37,11 +42,20 @@ public class GetDataTask implements Runnable{
                 }
                 latch.countDown();
             };
+            //Submit runnable for each spectrum
             executor.submit(checkSpectrumTask);
         }
         try {
-            latch.await();
-            wfList.forEach(System.out::println);
+            latch.await(30, TimeUnit.SECONDS);
+            ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+            //System.out.println(objectMapper.writeValueAsString(wfList);
+            wfList.forEach(a -> {
+                try {
+                    System.out.println(objectMapper.writeValueAsString(a));
+                } catch (JsonProcessingException e) {
+                    e.printStackTrace();
+                }
+            });
             //Add all waveforms to DB
             wfList.clear();
             System.out.println(">");
