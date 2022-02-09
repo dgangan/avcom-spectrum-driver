@@ -1,10 +1,15 @@
+package com.dgangan.avcom;
+
 import com.dgangan.avcom.AvPreset;
 import com.dgangan.avcom.AvSpectrum;
 import com.dgangan.avcom.AvWaveform;
+import com.dgangan.avcom.db.DBCPDataSource;
+import com.dgangan.avcom.db.DbWorker;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -22,6 +27,7 @@ public class GetDataTask implements Runnable{
     public GetDataTask(List<AvSpectrum> avList) {
         this.executor = Executors.newFixedThreadPool(6);
         this.avList = avList;
+
     }
 
     public void run(){
@@ -57,9 +63,10 @@ public class GetDataTask implements Runnable{
                 }
             });
             //Add all waveforms to DB
+            DbWorker.batchInsertWaveforms(wfList);
             wfList.clear();
             System.out.println(">");
-        } catch (InterruptedException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
